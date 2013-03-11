@@ -36,7 +36,11 @@ namespace ys {
 
 		//入力画像がどの位置か返す
 		//画像中の座標ではなく、分割したパッチの位置を返す
-		cv::Point calcPatchPosition( const cv::Mat& src );
+		bool calcPatchPosition( const cv::Mat& src, cv::Point& position );
+		bool calcPatchPosition( const cv::Mat& src ){
+			cv::Point pos;
+			return calcPatchPosition( src, pos );
+		}
 
 		//指定した計算済みパッチをクリアする。
 		//戻り値はクリアに成功したか否か
@@ -53,7 +57,7 @@ namespace ys {
 		const cv::Mat& getPatchImage( const cv::Point& pos );
 
 		//モザイク適用後の画像を返す
-		const cv::Mat& showProgressImage();
+		const cv::Mat& getProgressImage();
 
 		long long int diffVal( const cv::Mat& src, const cv::Mat& patch );
 
@@ -76,6 +80,7 @@ namespace ys {
 		cv::Mat _progress_image;
 
 		int _total_calc_times;
+		int _show_counter;
 
 		int _proc_mozaic_type_id;//モザイクアートの計算方式
 

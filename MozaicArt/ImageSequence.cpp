@@ -8,10 +8,18 @@
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
 
+
+#ifdef _WIN32
 #include <windows.h>
 
 #include <shlwapi.h>
 #pragma comment( lib, "shlwapi.lib" )
+
+#else
+#include <qfile.h>
+#include <qdir.h>
+
+#endif
 
 #include "ImageSequence.h"
 
@@ -101,6 +109,7 @@ bool ys::ImageList::get( Mat &image, int channel ){
 }
 bool ys::ImageList::next(){
 	if( _counter + 1 >= _image_list.size() ){
+		//cout<< "end image lists" <<endl;
 		return false;
 	}
 	++_counter;
@@ -115,14 +124,22 @@ int ys::ImageList::currentNum(){
 bool ys::ImageList::open(const string &filename){
 	_filename = filename;
 
+#ifdef _WIN32
 	const int result = PathFileExists( filename.c_str());
+#else
+	const int result = QFile( filename.c_str() ).exists();
+#endif
 	if( !result ){
 		cerr << "not exist file " <<endl;
 		return false;
 	}
 
 	size_t read_num;
+#ifdef _WIN32
 	if( PathIsDirectory( filename.c_str() )){
+#else
+	if( QDir( filename.c_str() ).exists() ){
+#endif
 		read_num = _readDir2List( filename );
 	}
 	else {
@@ -151,8 +168,6 @@ string ys::ImageList::getFileName(){
 
 size_t ys::ImageList::_readDir2List(const string &name ){
 
-	WIN32_FIND_DATA fd;
-
 	string dirname = name;
 	if( dirname[dirname.size()-1] != '\\'){
 		dirname += "\\";
@@ -162,6 +177,8 @@ size_t ys::ImageList::_readDir2List(const string &name ){
 	inf.serial_number = pos + 1;
 
 
+#ifdef _WIN32
+	WIN32_FIND_DATA fd;
 	//ファイル名をすべて_image_listにpush_backする
 	HANDLE hSearch = FindFirstFile( (dirname + "*.*").c_str(), &fd );
 	if( hSearch == INVALID_HANDLE_VALUE ){
@@ -187,6 +204,7 @@ size_t ys::ImageList::_readDir2List(const string &name ){
 	}
 
 	FindClose( hSearch);
+#else
 
 	/*
 	for( fs::directory_iterator itr(read_path); itr != end; ++itr ){
@@ -195,6 +213,17 @@ size_t ys::ImageList::_readDir2List(const string &name ){
 		_image_list.push_back(itr->path().filename().string());
 	}
 	*/
+	
+	QDir qdir( dirname.c_str() );
+	QStringList qfilters;
+	qfilters<< "*.jpg" << "*.png" << "*.bmp";
+	QStringList qflist =qdir.entryList(qfilters, QDir::Files|QDir::NoDotAndDotDot);
+
+	for( int i=0; i<qflist.size(); i++ ){
+		_image_list.push_back( qflist.at(i).toLocal8Bit().constData() );
+	}
+
+#endif
 
 	sort( _image_list.begin(), _image_list.end() );
 
@@ -205,38 +234,34 @@ size_t ys::ImageList::_readDir2List(const string &name ){
 size_t ys::ImageList::_readFile2List( const string &filename ){
 
 	stringstream sstr;
-
+#ifdef _WIN32
 	sstr<< filename.substr( filename.find_last_of("\\") );
+#else
+	sstr<< filename.substr( filename.find_last_of("/") );
+#endif
 	sstr>> inf.serial_number;
 
 	ifstream ifs(filename.c_str());
 	string line;
 	while( ifs ){
-		ifs>> line;
-		//fs::path read_path(line);
-		//boost::system::error_code error;
+		char fpath[PATH_MAX];
+		ifs.getline(fpath, PATH_MAX);
+		line = fpath;
+		//cout<< line <<endl;
 
 		//ファイルの存在確認
 		//存在しなければcontinue
+#ifdef _WIN32
 		const BOOL result = PathFileExists( line.c_str() );
+#else
+		const bool result = QFile::exists(QObject::tr(line.c_str()));
+#endif
 		if( !result ){
 			cerr<< "not exists \"" << line << "\". skip" <<endl;
 			continue;
 		}
 
 		_image_list.push_back( line );
-
-		/*
-		const bool result = fs::exists(read_path);
-		if( !result || error ){
-			cerr<< "not exist \""
-				<< line
-				<< "\". skip." <<endl;
-			continue;
-		}
-
-		_image_list.push_back( read_path.filename().string() );
-		*/
 	}
 
 	return _image_list.size();
